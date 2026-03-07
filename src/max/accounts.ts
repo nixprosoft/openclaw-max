@@ -90,3 +90,50 @@ export function listEnabledMaxAccounts(cfg: OpenClawConfig): ResolvedMaxAccount[
     .map((accountId) => resolveMaxAccount({ cfg, accountId }))
     .filter((account) => account.enabled);
 }
+
+// ─── inspectMaxAccount ────────────────────────────────────────────────────────
+
+export type MaxAccountInspection = {
+  accountId: string;
+  configured: boolean;
+  enabled: boolean;
+  botTokenSource: string;
+  apiBaseUrl: string;
+  name?: string;
+  mode: "polling" | "webhook";
+  webhookUrl?: string;
+  dmPolicy: string;
+  groupPolicy: string;
+  commandsCount: number;
+  textChunkLimit: number;
+  typingIndicator: boolean;
+  mediaMaxMb: number;
+};
+
+/**
+ * Returns a lightweight, read-only snapshot of a MAX account's configuration
+ * state without requiring a live connection or materialized credentials.
+ * Useful for `openclaw status` / `openclaw doctor` style checks.
+ */
+export function inspectMaxAccount(
+  cfg: OpenClawConfig,
+  accountId?: string | null,
+): MaxAccountInspection {
+  const account = resolveMaxAccount({ cfg, accountId });
+  return {
+    accountId: account.accountId,
+    configured: Boolean(account.botToken),
+    enabled: account.enabled,
+    botTokenSource: account.botTokenSource,
+    apiBaseUrl: account.apiBaseUrl,
+    name: account.name,
+    mode: account.config.mode ?? "polling",
+    webhookUrl: account.config.webhookUrl,
+    dmPolicy: account.config.dmPolicy ?? "pairing",
+    groupPolicy: account.config.groupPolicy ?? "allowlist",
+    commandsCount: (account.config.commands ?? []).length,
+    textChunkLimit: account.config.textChunkLimit ?? 4000,
+    typingIndicator: account.config.typingIndicator !== false,
+    mediaMaxMb: account.config.mediaMaxMb ?? 50,
+  };
+}

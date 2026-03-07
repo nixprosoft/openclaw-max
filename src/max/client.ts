@@ -2,6 +2,36 @@
 
 const DEFAULT_MAX_API_BASE = "https://api.max.ru";
 
+// ─── Retry configuration ──────────────────────────────────────────────────────
+
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 500;
+const RETRY_MAX_DELAY_MS = 30_000;
+
+function retrySleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetriableStatus(status: number): boolean {
+  return status === 429 || (status >= 500 && status <= 599);
+}
+
+function computeRetryDelayMs(res: Response | null, attempt: number): number {
+  if (res?.status === 429) {
+    const header = res.headers.get("retry-after");
+    if (header) {
+      const seconds = parseFloat(header);
+      if (!isNaN(seconds) && seconds > 0) {
+        return Math.min(Math.ceil(seconds * 1000), RETRY_MAX_DELAY_MS);
+      }
+    }
+  }
+  // Exponential backoff: base * 2^attempt with jitter
+  const base = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+  const jitter = Math.random() * RETRY_BASE_DELAY_MS;
+  return Math.min(base + jitter, RETRY_MAX_DELAY_MS);
+}
+
 export type MaxClient = {
   apiBaseUrl: string;
   token: string;
@@ -181,24 +211,55 @@ export function createMaxClient(params: {
   const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
     const suffix = path.startsWith("/") ? path : `/${path}`;
     const url = `${apiBaseUrl}${suffix}`;
-    const headers = new Headers(init?.headers);
-    headers.set("Authorization", `Bearer ${token}`);
-    if (typeof init?.body === "string" && !headers.has("Content-Type")) {
-      headers.set("Content-Type", "application/json");
+
+    const buildHeaders = (): Headers => {
+      const headers = new Headers(init?.headers);
+      headers.set("Authorization", `Bearer ${token}`);
+      if (typeof init?.body === "string" && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+      return headers;
+    };
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const isLastAttempt = attempt === MAX_RETRIES;
+      let res: Response;
+
+      try {
+        res = await fetch(url, { ...init, headers: buildHeaders() });
+      } catch (fetchErr) {
+        // Network / connectivity error
+        if (isLastAttempt) {
+          const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          throw new Error(`MAX API network error (${path}): ${msg}`);
+        }
+        await retrySleep(computeRetryDelayMs(null, attempt));
+        continue;
+      }
+
+      if (!res.ok) {
+        if (isRetriableStatus(res.status) && !isLastAttempt) {
+          // Consume the body to free the connection before retrying
+          try { await res.text(); } catch { /* ignore */ }
+          await retrySleep(computeRetryDelayMs(res, attempt));
+          continue;
+        }
+        const detail = await readMaxError(res);
+        const suffix429 = res.status === 429 ? " (rate limited — try again later)" : "";
+        throw new Error(`MAX API ${res.status} ${res.statusText}: ${detail || "unknown error"}${suffix429}`);
+      }
+
+      if (res.status === 204) {
+        return undefined as T;
+      }
+      const ct = res.headers.get("content-type") ?? "";
+      if (ct.includes("application/json")) {
+        return (await res.json()) as T;
+      }
+      return (await res.text()) as T;
     }
-    const res = await fetch(url, { ...init, headers });
-    if (!res.ok) {
-      const detail = await readMaxError(res);
-      throw new Error(`MAX API ${res.status} ${res.statusText}: ${detail || "unknown error"}`);
-    }
-    if (res.status === 204) {
-      return undefined as T;
-    }
-    const ct = res.headers.get("content-type") ?? "";
-    if (ct.includes("application/json")) {
-      return (await res.json()) as T;
-    }
-    return (await res.text()) as T;
+
+    throw new Error(`MAX API request failed after ${MAX_RETRIES} retries`);
   };
 
   return { apiBaseUrl, token, request };

@@ -23,7 +23,7 @@ import { monitorMaxWebhook } from "./max/monitor-webhook.js";
 import { probeMax } from "./max/probe.js";
 import { sendTextMax } from "./max/send.js";
 import { uploadMaxMedia } from "./max/upload.js";
-import { createMaxClient } from "./max/client.js";
+import { createMaxClient, sendMaxMessage } from "./max/client.js";
 import { getMaxRuntime } from "./runtime.js";
 
 function normalizeAllowEntry(entry: string): string {
@@ -91,8 +91,25 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
   pairing: {
     idLabel: "maxUserId",
     normalizeAllowEntry: (entry) => normalizeAllowEntry(entry),
-    notifyApproval: async ({ id }) => {
-      console.log(`[max] User ${id} approved for pairing`);
+    notifyApproval: async ({ id, cfg }) => {
+      // Parse user_id out of "max:12345"
+      const rawId = id.replace(/^max:/i, "");
+      const userId = parseInt(rawId, 10);
+      if (isNaN(userId)) {
+        console.log(`[max] Pairing approved for ${id} (could not parse user ID for DM notification)`);
+        return;
+      }
+      try {
+        const account = resolveMaxAccount({ cfg });
+        const token = account.botToken?.trim();
+        if (!token) return;
+        const client = createMaxClient({ botToken: token, apiBaseUrl: account.apiBaseUrl });
+        await sendMaxMessage(client, userId, {
+          text: "Your access request has been approved. You can now send messages to the AI assistant.",
+        });
+      } catch {
+        // Best-effort — ignore failures so pairing approval always succeeds
+      }
     },
   },
   security: {
@@ -182,7 +199,6 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
             maxBytes,
           });
 
-          const { sendMaxMessage } = await import("./max/client.js");
           const res = await sendMaxMessage(client, chatId, {
             text: text ?? undefined,
             format: account.config.format ?? "markdown",
