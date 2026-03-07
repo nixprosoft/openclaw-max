@@ -12,6 +12,7 @@ import {
   resolveDmGroupAccessWithLists,
   warnMissingProviderGroupPolicyFallbackOnce,
 } from "openclaw/plugin-sdk";
+import { buildAttachmentBodyText, processMaxAttachments } from "../inbound/attachments.js";
 import { getMaxRuntime } from "../runtime.js";
 import { resolveMaxAccount, type ResolvedMaxAccount } from "./accounts.js";
 import {
@@ -89,7 +90,7 @@ function isMaxSenderAllowed(senderId: string, allowFrom: string[]): boolean {
   return allowFrom.some((e) => e === normalized || e === senderId.toLowerCase());
 }
 
-async function registerCommands(
+export async function registerCommands(
   client: MaxClient,
   commands: Array<{ name: string; description: string }>,
   log: (msg: string) => void,
@@ -216,7 +217,7 @@ export async function monitorMaxProvider(opts: MonitorMaxOpts): Promise<void> {
   log(`[max] Monitor stopped for account "${account.accountId}"`);
 }
 
-type HandleUpdateCtx = {
+export type HandleUpdateCtx = {
   client: MaxClient;
   botInfo: MaxBotInfo;
   account: ResolvedMaxAccount;
@@ -227,7 +228,7 @@ type HandleUpdateCtx = {
   pairing: ReturnType<typeof createScopedPairingAccess>;
 };
 
-async function handleUpdate(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Promise<void> {
+export async function handleUpdate(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Promise<void> {
   if (update.update_type === "message_created" || update.update_type === "bot_started") {
     await handleMessageCreated(update, ctx);
   } else if (update.update_type === "message_callback") {
@@ -329,8 +330,14 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
     return;
   }
 
+  const rawAttachments = message.body?.attachments ?? [];
+  const attachmentInfos = processMaxAttachments(rawAttachments);
+  const attachmentText = buildAttachmentBodyText(attachmentInfos);
+
   const bodySource = kind !== "direct" ? stripBotMention(rawText, botInfo) : rawText.trim();
-  const bodyText = update.update_type === "bot_started" && !bodySource ? "/start" : bodySource;
+  const combinedSource = [bodySource, attachmentText].filter(Boolean).join("\n");
+  const bodyText =
+    update.update_type === "bot_started" && !combinedSource ? "/start" : combinedSource;
 
   if (!bodyText && update.update_type !== "bot_started") return;
 
@@ -430,9 +437,12 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
     fallbackLimit: account.config.textChunkLimit ?? 4000,
   });
 
+  const typingEnabled = account.config.typingIndicator !== false;
   const typingCallbacks = createTypingCallbacks({
     start: async () => {
-      await sendMaxTyping(client, chatId);
+      if (typingEnabled) {
+        await sendMaxTyping(client, chatId);
+      }
     },
     onStartError: (err) => {
       logTypingFailure({

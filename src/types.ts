@@ -45,8 +45,8 @@ export type MaxAccountConfig = {
   textChunkLimit?: number;
   /** Message format: "markdown" | "html". Default: markdown */
   format?: "markdown" | "html";
-  /** Streaming mode: "off" | "partial". Default: off */
-  streaming?: "off" | "partial";
+  /** Whether to send typing indicator while generating. Default: true */
+  typingIndicator?: boolean;
   /** Whether to send messages with notification. Default: true */
   notify?: boolean;
   /** Max media size in MB. Default: 50 */

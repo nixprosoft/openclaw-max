@@ -19,8 +19,11 @@ import {
   type ResolvedMaxAccount,
 } from "./max/accounts.js";
 import { monitorMaxProvider } from "./max/monitor.js";
+import { monitorMaxWebhook } from "./max/monitor-webhook.js";
 import { probeMax } from "./max/probe.js";
 import { sendTextMax } from "./max/send.js";
+import { uploadMaxMedia } from "./max/upload.js";
+import { createMaxClient } from "./max/client.js";
 import { getMaxRuntime } from "./runtime.js";
 
 function normalizeAllowEntry(entry: string): string {
@@ -49,9 +52,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
     threads: false,
     media: true,
   },
-  streaming: {
-    blockStreamingCoalesceDefaults: { minChars: 1500, idleMs: 1000 },
-  },
+  // Typing indicator is the default streaming ack — no edit-based preview streaming.
   reload: { configPrefixes: ["channels.max"] },
   configSchema: buildChannelConfigSchema(MaxConfigSchema),
   config: {
@@ -155,12 +156,58 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
       });
       return { channel: "max", messageId: result.messageId, chatId: String(result.chatId) };
     },
-    sendMedia: async ({ to, text, accountId, replyToId }) => {
-      // Phase 1: media not yet implemented, fall back to text with URL
+    sendMedia: async ({ to, text, accountId, replyToId, mediaUrl, mediaLocalRoots, cfg }) => {
       const chatId = parseInt(to, 10);
       if (isNaN(chatId)) {
         throw new Error(`MAX: invalid chatId "${to}" — must be a numeric chat ID`);
       }
+
+      const runtime = getMaxRuntime();
+      const resolvedCfg = cfg ?? runtime.config.loadConfig();
+      const account = resolveMaxAccount({ cfg: resolvedCfg, accountId: accountId ?? undefined });
+      const token = account.botToken?.trim();
+      if (!token) {
+        throw new Error(
+          `MAX bot token missing for account "${account.accountId}".`,
+        );
+      }
+      const client = createMaxClient({ botToken: token, apiBaseUrl: account.apiBaseUrl });
+
+      if (mediaUrl?.trim()) {
+        try {
+          const maxBytes = (account.config.mediaMaxMb ?? 50) * 1024 * 1024;
+          const { attachment } = await uploadMaxMedia(client, {
+            mediaUrl: mediaUrl.trim(),
+            mediaLocalRoots,
+            maxBytes,
+          });
+
+          const { sendMaxMessage } = await import("./max/client.js");
+          const res = await sendMaxMessage(client, chatId, {
+            text: text ?? undefined,
+            format: account.config.format ?? "markdown",
+            notify: account.config.notify ?? true,
+            attachments: [attachment],
+            ...(replyToId ? { link: { type: "reply" as const, mid: replyToId } } : {}),
+          });
+          runtime.channel.activity.record({
+            channel: "max",
+            accountId: account.accountId,
+            direction: "outbound",
+          });
+          return { channel: "max", messageId: res.message_id, chatId: String(res.chat_id ?? chatId) };
+        } catch (uploadErr) {
+          // Fall back to sending the URL as text if upload fails
+          const fallbackText = [text, mediaUrl].filter(Boolean).join("\n");
+          const result = await sendTextMax(chatId, fallbackText || "(media)", {
+            accountId: accountId ?? undefined,
+            replyToId: replyToId ?? undefined,
+          });
+          return { channel: "max", messageId: result.messageId, chatId: String(result.chatId) };
+        }
+      }
+
+      // No mediaUrl — send text only
       const result = await sendTextMax(chatId, text ?? "(media)", {
         accountId: accountId ?? undefined,
         replyToId: replyToId ?? undefined,
@@ -303,16 +350,23 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
         lastStartAt: Date.now(),
         running: true,
       });
-      ctx.log?.info(`[${account.accountId}] MAX channel starting`);
-      return monitorMaxProvider({
+      const mode = account.config.mode ?? "polling";
+      ctx.log?.info(`[${account.accountId}] MAX channel starting (mode: ${mode})`);
+      const statusSink = (patch: Partial<{ accountId: string; [key: string]: unknown }>) =>
+        ctx.setStatus({ ...(patch as Parameters<typeof ctx.setStatus>[0]), accountId: ctx.accountId });
+      const sharedOpts = {
         botToken: account.botToken ?? undefined,
         apiBaseUrl: account.apiBaseUrl,
         accountId: account.accountId,
         config: ctx.cfg,
         runtime: ctx.runtime,
         abortSignal: ctx.abortSignal,
-        statusSink: (patch) => ctx.setStatus({ accountId: ctx.accountId, ...patch }),
-      });
+        statusSink,
+      };
+      if (mode === "webhook") {
+        return monitorMaxWebhook(sharedOpts);
+      }
+      return monitorMaxProvider(sharedOpts);
     },
   },
 };

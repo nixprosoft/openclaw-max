@@ -299,3 +299,57 @@ export async function getMaxUploadUrl(
     { method: "POST" },
   );
 }
+
+/**
+ * Step 2 of the upload flow: PUT the file buffer to the pre-signed upload URL.
+ * Returns the token that can be used in an attachment payload.
+ */
+export async function uploadMaxFile(
+  uploadUrl: string,
+  buffer: Buffer,
+  contentType?: string,
+): Promise<MaxUploadedFileToken> {
+  const headers: Record<string, string> = {};
+  if (contentType) {
+    headers["Content-Type"] = contentType;
+  }
+  const res = await fetch(uploadUrl, {
+    method: "POST",
+    body: buffer,
+    headers,
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`MAX file upload failed ${res.status} ${res.statusText}: ${detail || "unknown"}`);
+  }
+  return (await res.json()) as MaxUploadedFileToken;
+}
+
+// ─── Webhook subscriptions ─────────────────────────────────────────────────
+
+export type MaxSubscription = {
+  subscription_id?: number | null;
+  url?: string | null;
+  time?: number | null;
+};
+
+export async function subscribeMaxWebhook(
+  client: MaxClient,
+  params: { url: string; updateTypes?: string[]; secret?: string },
+): Promise<MaxSubscription> {
+  const body: Record<string, unknown> = { url: params.url };
+  if (params.updateTypes && params.updateTypes.length > 0) {
+    body.update_types = params.updateTypes;
+  }
+  if (params.secret) {
+    body.secret = params.secret;
+  }
+  return client.request<MaxSubscription>("/subscriptions", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function unsubscribeMaxWebhook(client: MaxClient): Promise<void> {
+  return client.request<void>("/subscriptions", { method: "DELETE" });
+}

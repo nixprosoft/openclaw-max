@@ -39,7 +39,7 @@ const MaxAccountSchemaBase = z
     groups: z.record(z.string(), MaxGroupConfigSchema).optional(),
     textChunkLimit: z.number().int().positive().optional(),
     format: z.enum(["markdown", "html"]).optional(),
-    streaming: z.enum(["off", "partial"]).optional(),
+    typingIndicator: z.boolean().optional(),
     notify: z.boolean().optional(),
     mediaMaxMb: z.number().int().positive().optional(),
     actions: z
