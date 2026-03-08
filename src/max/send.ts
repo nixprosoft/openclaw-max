@@ -66,7 +66,7 @@ export async function sendTextMax(
   const res = await sendMaxMessage(client, chatId, body);
 
   runtime.channel.activity.record({
-    channel: "max",
+    channel: "chatmax",
     accountId: account.accountId,
     direction: "outbound",
   });

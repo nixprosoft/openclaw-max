@@ -56,7 +56,7 @@ function toChatKind(kind: ChatType): "direct" | "group" | "channel" {
 }
 
 function formatSenderId(userId: number | undefined | null): string {
-  return `max:${userId ?? "unknown"}`;
+  return `chatmax:${userId ?? "unknown"}`;
 }
 
 function formatUserLabel(user: MaxUser | null | undefined): string {
@@ -149,19 +149,19 @@ export async function monitorMaxProvider(opts: MonitorMaxOpts): Promise<void> {
 
   const pairing = createScopedPairingAccess({
     core,
-    channel: "max",
+    channel: "chatmax",
     accountId: account.accountId,
   });
 
   const defaultGroupPolicy = resolveDefaultGroupPolicy(cfg);
   const { groupPolicy, providerMissingFallbackApplied } = resolveAllowlistProviderRuntimeGroupPolicy({
-    providerConfigPresent: (cfg.channels as Record<string, unknown>)?.max !== undefined,
+    providerConfigPresent: (cfg.channels as Record<string, unknown>)?.chatmax !== undefined,
     groupPolicy: account.config.groupPolicy,
     defaultGroupPolicy,
   });
   warnMissingProviderGroupPolicyFallbackOnce({
     providerMissingFallbackApplied,
-    providerKey: "max",
+    providerKey: "chatmax",
     accountId: account.accountId,
     log: (message) => log(message),
   });
@@ -250,7 +250,7 @@ export async function handleUpdate(update: MaxUpdateEvent, ctx: HandleUpdateCtx)
 async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Promise<void> {
   const { client, botInfo, account, cfg, log, opts, groupPolicy, pairing } = ctx;
   const core = getMaxRuntime();
-  const logger = core.logging.getChildLogger({ module: "max" });
+  const logger = core.logging.getChildLogger({ module: "chatmax" });
 
   const message = update.message;
   if (!message) return;
@@ -283,7 +283,7 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
 
   const storeAllowFrom = normalizeMaxAllowList(
     await readStoreAllowFromForDmPolicy({
-      provider: "max",
+      provider: "chatmax",
       accountId: account.accountId,
       dmPolicy,
       readStore: pairing.readStoreForDmPolicy,
@@ -315,7 +315,7 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
           try {
             await sendMaxMessage(client, chatId, {
               text: core.channel.pairing.buildPairingReply({
-                channel: "max",
+                channel: "chatmax",
                 idLine: `Your MAX user id: ${sender?.user_id ?? "unknown"}`,
                 code,
               }),
@@ -360,14 +360,14 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
 
   const to =
     kind === "direct"
-      ? `max:${sender?.user_id ?? chatId}`
+      ? `chatmax:${sender?.user_id ?? chatId}`
       : kind === "group"
         ? `max:group:${chatId}`
         : `max:channel:${chatId}`;
 
   const route = core.channel.routing.resolveAgentRoute({
     cfg,
-    channel: "max",
+    channel: "chatmax",
     accountId: account.accountId,
     peer: {
       kind,
@@ -397,7 +397,7 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
     BodyForCommands: rawText.trim(),
     From:
       kind === "direct"
-        ? `max:${sender?.user_id ?? chatId}`
+        ? `chatmax:${sender?.user_id ?? chatId}`
         : kind === "group"
           ? `max:group:${chatId}`
           : `max:channel:${chatId}`,
@@ -408,11 +408,11 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
     ConversationLabel: fromLabel,
     SenderName: senderName,
     SenderId: senderId,
-    Provider: "max" as const,
-    Surface: "max" as const,
+    Provider: "chatmax" as const,
+    Surface: "chatmax" as const,
     MessageSid: messageId,
     WasMentioned: kind !== "direct" ? wasMentioned : undefined,
-    OriginatingChannel: "max" as const,
+    OriginatingChannel: "chatmax" as const,
     OriginatingTo: to,
     ...buildAgentMediaPayload([]),
   });
@@ -426,7 +426,7 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
       storePath,
       sessionKey: route.mainSessionKey,
       deliveryContext: {
-        channel: "max",
+        channel: "chatmax",
         to,
         accountId: route.accountId,
       },
@@ -434,7 +434,7 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
   }
 
   core.channel.activity.record({
-    channel: "max",
+    channel: "chatmax",
     accountId: account.accountId,
     direction: "inbound",
   });
@@ -444,11 +444,11 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
   const { onModelSelected, ...prefixOptions } = createReplyPrefixOptions({
     cfg,
     agentId: route.agentId,
-    channel: "max",
+    channel: "chatmax",
     accountId: account.accountId,
   });
 
-  const textLimit = core.channel.text.resolveTextChunkLimit(cfg, "max", account.accountId, {
+  const textLimit = core.channel.text.resolveTextChunkLimit(cfg, "chatmax", account.accountId, {
     fallbackLimit: account.config.textChunkLimit ?? 4000,
   });
 
@@ -462,7 +462,7 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
     onStartError: (err) => {
       logTypingFailure({
         log: (message) => logger.debug?.(message),
-        channel: "max",
+        channel: "chatmax",
         target: String(chatId),
         error: err,
       });
@@ -523,7 +523,7 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
 async function handleCallback(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Promise<void> {
   const { client, botInfo, account, cfg, log, opts } = ctx;
   const core = getMaxRuntime();
-  const logger = core.logging.getChildLogger({ module: "max" });
+  const logger = core.logging.getChildLogger({ module: "chatmax" });
 
   const cb = update.callback;
   if (!cb) return;
@@ -561,11 +561,11 @@ async function handleCallback(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Pro
   const senderName = formatUserLabel(user);
   const messageId = cb.message?.body?.mid ?? callbackId;
 
-  const to = `max:${user?.user_id ?? chatId}`;
+  const to = `chatmax:${user?.user_id ?? chatId}`;
 
   const route = core.channel.routing.resolveAgentRoute({
     cfg,
-    channel: "max",
+    channel: "chatmax",
     accountId: account.accountId,
     peer: { kind: "direct", id: senderId },
   });
@@ -584,7 +584,7 @@ async function handleCallback(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Pro
     RawBody: payload,
     CommandBody: payload,
     BodyForCommands: payload,
-    From: `max:${user?.user_id ?? chatId}`,
+    From: `chatmax:${user?.user_id ?? chatId}`,
     To: to,
     SessionKey: route.sessionKey,
     AccountId: route.accountId,
@@ -592,16 +592,16 @@ async function handleCallback(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Pro
     ConversationLabel: senderName,
     SenderName: senderName,
     SenderId: senderId,
-    Provider: "max" as const,
-    Surface: "max" as const,
+    Provider: "chatmax" as const,
+    Surface: "chatmax" as const,
     MessageSid: messageId,
-    OriginatingChannel: "max" as const,
+    OriginatingChannel: "chatmax" as const,
     OriginatingTo: to,
     ...buildAgentMediaPayload([]),
   });
 
   core.channel.activity.record({
-    channel: "max",
+    channel: "chatmax",
     accountId: account.accountId,
     direction: "inbound",
   });
@@ -609,11 +609,11 @@ async function handleCallback(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Pro
   const { onModelSelected, ...prefixOptions } = createReplyPrefixOptions({
     cfg,
     agentId: route.agentId,
-    channel: "max",
+    channel: "chatmax",
     accountId: account.accountId,
   });
 
-  const textLimit = core.channel.text.resolveTextChunkLimit(cfg, "max", account.accountId, {
+  const textLimit = core.channel.text.resolveTextChunkLimit(cfg, "chatmax", account.accountId, {
     fallbackLimit: account.config.textChunkLimit ?? 4000,
   });
 

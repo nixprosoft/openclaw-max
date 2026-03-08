@@ -1,5 +1,5 @@
 {
-  "name": "@nixprosoft/max",
+  "name": "@nixprosoft/chatmax",
   "version": "0.1.0",
   "description": "OpenClaw channel plugin for MAX messenger (formerly VK Teams)",
   "type": "module",
@@ -12,20 +12,21 @@
       "./index.ts"
     ],
     "channel": {
-      "id": "max",
+      "id": "chatmax",
       "label": "MAX",
       "selectionLabel": "MAX Messenger (plugin)",
       "docsPath": null,
-      "docsLabel": "max",
+      "docsLabel": "chatmax",
       "blurb": "Russian messenger MAX (formerly VK Teams) via Bot API.",
       "order": 70,
       "aliases": [
+        "max",
         "max-messenger",
         "vk-teams"
       ]
     },
     "install": {
-      "npmSpec": "@nixprosoft/max",
+      "npmSpec": "@nixprosoft/chatmax",
       "defaultChoice": "npm"
     }
   },

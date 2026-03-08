@@ -4,7 +4,7 @@ import { maxPlugin } from "./src/channel.js";
 import { setMaxRuntime } from "./src/runtime.js";
 
 const plugin = {
-  id: "max",
+  id: "chatmax",
   name: "MAX Messenger",
   description: "OpenClaw channel plugin for MAX (formerly VK Teams) messenger",
   configSchema: emptyPluginConfigSchema(),
