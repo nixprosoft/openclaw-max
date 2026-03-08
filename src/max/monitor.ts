@@ -187,8 +187,13 @@ export async function monitorMaxProvider(opts: MonitorMaxOpts): Promise<void> {
 
       reconnectDelay = RECONNECT_DELAY_MS;
 
+      // Signal healthy connection to health-monitor after each successful poll
+      opts.statusSink?.({ connected: true, lastError: null });
+
       if (updates.length > 0) {
         log(`[max] [debug] received ${updates.length} update(s): ${updates.map((u: MaxUpdateEvent) => u.update_type).join(", ")}`);
+        // Report inbound activity so health-monitor doesn't flag as stale-socket
+        opts.statusSink?.({ lastInboundAt: Date.now() } as Partial<ChannelAccountSnapshot>);
       }
 
       for (const update of updates) {
