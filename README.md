@@ -31,7 +31,7 @@ Create a bot by messaging **@masterbot** in MAX (not @metabot — that is a diff
 ### Via npm (recommended)
 
 ```bash
-openclaw plugins install @nixprosoft/openclaw-max
+openclaw plugins install @nixprosoft/max
 ```
 
 ### From local path (development)
@@ -44,7 +44,7 @@ openclaw plugins install /path/to/openclaw-max
 
 ## Configuration
 
-Add a `channels.max` section to your OpenClaw config file (`~/.openclaw/config.yml` or `openclaw.config.yml`):
+Add a `channels.max` section to your OpenClaw config file (`~/.openclaw/openclaw.json`):
 
 ### Minimal (polling mode)
 
