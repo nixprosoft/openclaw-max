@@ -1,6 +1,6 @@
 {
   "name": "@nixprosoft/max",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "OpenClaw channel plugin for MAX messenger (formerly VK Teams)",
   "type": "module",
   "main": "./index.ts",
