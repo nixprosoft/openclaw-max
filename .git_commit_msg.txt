@@ -1,0 +1,20 @@
+feat: Phase 4 polish — README, retry, pairing DM notification, inspectAccount
+
+- README.md: comprehensive docs with requirements (Russian legal entity),
+  bot creation via @masterbot, installation, config examples, webhook vs
+  polling setup, access control, multi-account, supported/unsupported
+  features, troubleshooting, and links
+
+- src/max/client.ts: retry with exponential backoff + jitter (up to 3
+  retries) for 5xx errors and network failures; 429 rate-limit handling
+  reads Retry-After header before sleeping; graceful error messages
+
+- src/channel.ts: pairing.notifyApproval now sends a DM to the user
+  when their pairing request is approved; static import of sendMaxMessage
+  (removes dynamic import in sendMedia)
+
+- src/max/accounts.ts: add inspectMaxAccount(cfg, accountId) — a
+  lightweight read-only account config snapshot for status/doctor
+  commands, requiring no live connection
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>

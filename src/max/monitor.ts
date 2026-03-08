@@ -104,6 +104,9 @@ export async function registerCommands(
   }
 }
 
+// Cache userId → chatId mapping for callback resolution (MAX callbacks don't include chat_id)
+const userChatIdCache = new Map<number, number>();
+
 export async function monitorMaxProvider(opts: MonitorMaxOpts): Promise<void> {
   const core = getMaxRuntime();
   const runtime = opts.runtime;
@@ -184,6 +187,10 @@ export async function monitorMaxProvider(opts: MonitorMaxOpts): Promise<void> {
 
       reconnectDelay = RECONNECT_DELAY_MS;
 
+      if (updates.length > 0) {
+        log(`[max] [debug] received ${updates.length} update(s): ${updates.map((u: MaxUpdateEvent) => u.update_type).join(", ")}`);
+      }
+
       for (const update of updates) {
         try {
           await handleUpdate(update, {
@@ -253,9 +260,17 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
   const rawChatType = message.recipient?.chat_type as string | undefined;
   const messageId = message.body?.mid;
   const rawText = message.body?.text ?? "";
+  const rawAttachmentsCount = message.body?.attachments?.length ?? 0;
+
+  log(`[max] [debug] message_created: chatId=${chatId} sender=${sender?.user_id} (${sender?.name ?? "?"}) type=${rawChatType} mid=${messageId} text="${rawText?.substring(0, 80)}" attachments=${rawAttachmentsCount}`);
 
   if (!chatId || !messageId) return;
   if (sender?.user_id === botInfo.user_id) return;
+
+  // Cache userId → chatId for callback resolution
+  if (sender?.user_id && chatId) {
+    userChatIdCache.set(sender.user_id, chatId);
+  }
 
   const kind = mapMaxChatType(rawChatType);
   const chatType = toChatKind(kind);
@@ -462,6 +477,7 @@ async function handleMessageCreated(update: MaxUpdateEvent, ctx: HandleUpdateCtx
       deliver: async (payload: ReplyPayload) => {
         const mediaUrls = payload.mediaUrls ?? (payload.mediaUrl ? [payload.mediaUrl] : []);
         const text = payload.text ?? "";
+        log(`[max] [debug] deliver: chatId=${chatId} textLen=${text.length} mediaUrls=${mediaUrls.length} replyTo=${messageId}`);
         if (mediaUrls.length === 0) {
           const chunks = core.channel.text.chunkMarkdownText(text, textLimit);
           for (const chunk of chunks.length > 0 ? chunks : [text]) {
@@ -515,7 +531,19 @@ async function handleCallback(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Pro
   const callbackId = cb.callback_id;
   const payload = cb.payload ?? "";
   const user = cb.user;
-  const chatId = cb.message?.recipient?.chat_id;
+  // MAX may not include full message in callback — resolve chat_id from cache
+  let chatId = cb.message?.recipient?.chat_id
+    ?? update.chat_id
+    ?? (user?.user_id ? userChatIdCache.get(user.user_id) : undefined);
+
+  // Track whether we need to send via user_id instead of chat_id
+  const useUserId = !chatId && !!user?.user_id;
+  if (useUserId) {
+    chatId = user!.user_id;
+    log(`[max] [debug] callback: no chat_id found, will use user_id=${chatId} for sending`);
+  }
+
+  log(`[max] [debug] callback: callbackId=${callbackId} payload="${payload}" user=${user?.user_id} chatId=${chatId} useUserId=${useUserId}`);
 
   if (!chatId) return;
 
@@ -601,7 +629,7 @@ async function handleCallback(update: MaxUpdateEvent, ctx: HandleUpdateCtx): Pro
           await sendMaxMessage(client, chatId, {
             text: chunk,
             format: account.config.format ?? "markdown",
-          });
+          }, { useUserId });
         }
         opts.statusSink?.({ lastOutboundAt: Date.now() });
       },

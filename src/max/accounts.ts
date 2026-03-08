@@ -5,7 +5,7 @@ import type { MaxAccountConfig, ResolvedMaxAccount } from "../types.js";
 export type { ResolvedMaxAccount } from "../types.js";
 import { normalizeMaxApiBase } from "./client.js";
 
-const DEFAULT_MAX_API_BASE = "https://api.max.ru";
+const DEFAULT_MAX_API_BASE = "https://botapi.max.ru";
 
 function listConfiguredAccountIds(cfg: OpenClawConfig): string[] {
   const accounts = (cfg.channels as Record<string, unknown>)?.max as MaxAccountConfig | undefined;

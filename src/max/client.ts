@@ -1,6 +1,6 @@
 /** Raw HTTP client for MAX Bot API. */
 
-const DEFAULT_MAX_API_BASE = "https://api.max.ru";
+const DEFAULT_MAX_API_BASE = "https://botapi.max.ru";
 
 // ─── Retry configuration ──────────────────────────────────────────────────────
 
@@ -210,11 +210,12 @@ export function createMaxClient(params: {
 
   const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
     const suffix = path.startsWith("/") ? path : `/${path}`;
-    const url = `${apiBaseUrl}${suffix}`;
+    // MAX Bot API requires access_token as a query parameter
+    const sep = suffix.includes("?") ? "&" : "?";
+    const url = `${apiBaseUrl}${suffix}${sep}access_token=${encodeURIComponent(token)}`;
 
     const buildHeaders = (): Headers => {
       const headers = new Headers(init?.headers);
-      headers.set("Authorization", `Bearer ${token}`);
       if (typeof init?.body === "string" && !headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
       }
@@ -285,9 +286,11 @@ export async function sendMaxMessage(
   client: MaxClient,
   chatId: number,
   body: MaxSendMessageBody,
+  opts?: { useUserId?: boolean },
 ): Promise<MaxSendMessageResponse> {
+  const idParam = opts?.useUserId ? `user_id=${encodeURIComponent(chatId)}` : `chat_id=${encodeURIComponent(chatId)}`;
   return client.request<MaxSendMessageResponse>(
-    `/messages?chat_id=${encodeURIComponent(chatId)}`,
+    `/messages?${idParam}`,
     {
       method: "POST",
       body: JSON.stringify(body),
