@@ -22,7 +22,7 @@ Thanks for your interest in contributing! 🖤
    ```json
    {
      "channels": {
-       "chatmax": {
+       "max": {
          "enabled": true,
          "botToken": "YOUR_MAX_BOT_TOKEN",
          "mode": "polling"
@@ -57,7 +57,7 @@ Thanks for your interest in contributing! 🖤
 
 Use the [Bug Report template](https://github.com/nixprosoft/openclaw-max/issues/new?template=bug_report.md). Include logs from:
 ```bash
-journalctl --user -u openclaw-gateway | grep chatmax
+journalctl --user -u openclaw-gateway | grep max
 ```
 
 ## Code Style

@@ -93,19 +93,19 @@ export async function monitorMaxWebhook(opts: MonitorMaxWebhookOpts): Promise<vo
 
   const pairing = createScopedPairingAccess({
     core,
-    channel: "chatmax",
+    channel: "max",
     accountId: account.accountId,
   });
 
   const defaultGroupPolicy = resolveDefaultGroupPolicy(cfg);
   const { groupPolicy, providerMissingFallbackApplied } = resolveAllowlistProviderRuntimeGroupPolicy({
-    providerConfigPresent: (cfg.channels as Record<string, unknown>)?.chatmax !== undefined,
+    providerConfigPresent: (cfg.channels as Record<string, unknown>)?.max !== undefined,
     groupPolicy: account.config.groupPolicy,
     defaultGroupPolicy,
   });
   warnMissingProviderGroupPolicyFallbackOnce({
     providerMissingFallbackApplied,
-    providerKey: "chatmax",
+    providerKey: "max",
     accountId: account.accountId,
     log: (message) => log(message),
   });
@@ -201,7 +201,7 @@ export async function monitorMaxWebhook(opts: MonitorMaxWebhookOpts): Promise<vo
     path: webhookPath,
     auth: "plugin",
     replaceExisting: true,
-    pluginId: "chatmax",
+    pluginId: "max",
     accountId: account.accountId,
     log: (msg: string) => log(msg),
     handler,

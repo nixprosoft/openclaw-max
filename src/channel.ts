@@ -29,19 +29,19 @@ import { getMaxRuntime } from "./runtime.js";
 function normalizeAllowEntry(entry: string): string {
   return entry
     .trim()
-    .replace(/^(chatmax|max|user):/i, "")
+    .replace(/^(max|user):/i, "")
     .toLowerCase();
 }
 
 export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
-  id: "chatmax",
+  id: "max",
   meta: {
-    id: "chatmax",
+    id: "max",
     label: "MAX",
     selectionLabel: "MAX Messenger (plugin)",
     detailLabel: "MAX Bot",
-    docsPath: "/channels/chatmax",
-    docsLabel: "chatmax",
+    docsPath: "/channels/max",
+    docsLabel: "max",
     blurb: "Russian messenger MAX (formerly VK Teams) via Bot API.",
     order: 70,
     quickstartAllowFrom: true,
@@ -53,7 +53,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
     media: true,
   },
   // Typing indicator is the default streaming ack — no edit-based preview streaming.
-  reload: { configPrefixes: ["channels.chatmax"] },
+  reload: { configPrefixes: ["channels.max"] },
   configSchema: buildChannelConfigSchema(MaxConfigSchema),
   config: {
     listAccountIds: (cfg) => listMaxAccountIds(cfg),
@@ -62,7 +62,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
     setAccountEnabled: ({ cfg, accountId, enabled }) =>
       setAccountEnabledInConfigSection({
         cfg,
-        sectionKey: "chatmax",
+        sectionKey: "max",
         accountId,
         enabled,
         allowTopLevel: true,
@@ -70,7 +70,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
     deleteAccount: ({ cfg, accountId }) =>
       deleteAccountFromConfigSection({
         cfg,
-        sectionKey: "chatmax",
+        sectionKey: "max",
         accountId,
         clearBaseFields: ["botToken", "apiBaseUrl", "name"],
       }),
@@ -92,8 +92,8 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
     idLabel: "maxUserId",
     normalizeAllowEntry: (entry) => normalizeAllowEntry(entry),
     notifyApproval: async ({ id, cfg }) => {
-      // Parse user_id out of "chatmax:12345"
-      const rawId = id.replace(/^(chatmax|max):/i, "");
+      // Parse user_id out of "max:12345"
+      const rawId = id.replace(/^max:/i, "");
       const userId = parseInt(rawId, 10);
       if (isNaN(userId)) {
         console.log(`[max] Pairing approved for ${id} (could not parse user ID for DM notification)`);
@@ -116,17 +116,17 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
     resolveDmPolicy: ({ cfg, accountId, account }) => {
       const resolvedAccountId = accountId ?? account.accountId ?? DEFAULT_ACCOUNT_ID;
       const useAccountPath = Boolean(
-        (cfg.channels as Record<string, unknown>)?.chatmax as Record<string, unknown> | undefined
+        (cfg.channels as Record<string, unknown>)?.max as Record<string, unknown> | undefined
       ) && resolvedAccountId !== DEFAULT_ACCOUNT_ID;
       const basePath = useAccountPath
-        ? `channels.chatmax.accounts.${resolvedAccountId}.`
-        : "channels.chatmax.";
+        ? `channels.max.accounts.${resolvedAccountId}.`
+        : "channels.max.";
       return {
         policy: account.config.dmPolicy ?? "pairing",
         allowFrom: (account.config.allowFrom ?? []).map(String),
         policyPath: `${basePath}dmPolicy`,
         allowFromPath: basePath,
-        approveHint: formatPairingApproveHint("chatmax"),
+        approveHint: formatPairingApproveHint("max"),
         normalizeEntry: (raw) => normalizeAllowEntry(raw),
       };
     },
@@ -134,7 +134,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
       const defaultGroupPolicy = resolveDefaultGroupPolicy(cfg);
       const { groupPolicy } = resolveAllowlistProviderRuntimeGroupPolicy({
         providerConfigPresent:
-          (cfg.channels as Record<string, unknown>)?.chatmax !== undefined,
+          (cfg.channels as Record<string, unknown>)?.max !== undefined,
         groupPolicy: account.config.groupPolicy,
         defaultGroupPolicy,
       });
@@ -142,7 +142,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
         return [];
       }
       return [
-        `- MAX groups: groupPolicy="open" allows any member to trigger (mention-gated). Set channels.chatmax.groupPolicy="allowlist" + channels.chatmax.groupAllowFrom to restrict senders.`,
+        `- MAX groups: groupPolicy="open" allows any member to trigger (mention-gated). Set channels.max.groupPolicy="allowlist" + channels.max.groupAllowFrom to restrict senders.`,
       ];
     },
   },
@@ -171,7 +171,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
         accountId: accountId ?? undefined,
         replyToId: replyToId ?? undefined,
       });
-      return { channel: "chatmax", messageId: result.messageId, chatId: String(result.chatId) };
+      return { channel: "max", messageId: result.messageId, chatId: String(result.chatId) };
     },
     sendMedia: async ({ to, text, accountId, replyToId, mediaUrl, mediaLocalRoots, cfg }) => {
       const chatId = parseInt(to, 10);
@@ -207,11 +207,11 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
             ...(replyToId ? { link: { type: "reply" as const, mid: replyToId } } : {}),
           });
           runtime.channel.activity.record({
-            channel: "chatmax",
+            channel: "max",
             accountId: account.accountId,
             direction: "outbound",
           });
-          return { channel: "chatmax", messageId: res.message_id, chatId: String(res.chat_id ?? chatId) };
+          return { channel: "max", messageId: res.message_id, chatId: String(res.chat_id ?? chatId) };
         } catch (uploadErr) {
           // Fall back to sending the URL as text if upload fails
           const fallbackText = [text, mediaUrl].filter(Boolean).join("\n");
@@ -219,7 +219,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
             accountId: accountId ?? undefined,
             replyToId: replyToId ?? undefined,
           });
-          return { channel: "chatmax", messageId: result.messageId, chatId: String(result.chatId) };
+          return { channel: "max", messageId: result.messageId, chatId: String(result.chatId) };
         }
       }
 
@@ -228,7 +228,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
         accountId: accountId ?? undefined,
         replyToId: replyToId ?? undefined,
       });
-      return { channel: "chatmax", messageId: result.messageId, chatId: String(result.chatId) };
+      return { channel: "max", messageId: result.messageId, chatId: String(result.chatId) };
     },
   },
   status: {
@@ -285,7 +285,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
     applyAccountName: ({ cfg, accountId, name }) =>
       applyAccountNameToChannelSection({
         cfg,
-        channelKey: "chatmax",
+        channelKey: "max",
         accountId,
         name,
       }),
@@ -301,7 +301,7 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
       const apiBaseUrl = input.httpUrl?.trim();
       const namedConfig = applyAccountNameToChannelSection({
         cfg,
-        channelKey: "chatmax",
+        channelKey: "max",
         accountId,
         name: input.name,
       });
@@ -309,17 +309,17 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
         accountId !== DEFAULT_ACCOUNT_ID
           ? migrateBaseNameToDefaultAccount({
               cfg: namedConfig,
-              channelKey: "chatmax",
+              channelKey: "max",
             })
           : namedConfig;
 
       if (accountId === DEFAULT_ACCOUNT_ID) {
-        const currentMax = (next.channels as Record<string, unknown> | undefined)?.chatmax as Record<string, unknown> | undefined ?? {};
+        const currentMax = (next.channels as Record<string, unknown> | undefined)?.max as Record<string, unknown> | undefined ?? {};
         return {
           ...next,
           channels: {
             ...next.channels,
-            chatmax: {
+            max: {
               ...currentMax,
               enabled: true,
               ...(input.useEnv
@@ -332,14 +332,14 @@ export const maxPlugin: ChannelPlugin<ResolvedMaxAccount> = {
           },
         };
       }
-      const baseMaxCfg = (next.channels as Record<string, unknown> | undefined)?.chatmax as Record<string, unknown> | undefined ?? {};
+      const baseMaxCfg = (next.channels as Record<string, unknown> | undefined)?.max as Record<string, unknown> | undefined ?? {};
       const existingAccounts = baseMaxCfg.accounts as Record<string, unknown> | undefined ?? {};
       const existingAccount = existingAccounts[accountId] as Record<string, unknown> | undefined ?? {};
       return {
         ...next,
         channels: {
           ...next.channels,
-          chatmax: {
+          max: {
             ...baseMaxCfg,
             enabled: true,
             accounts: {

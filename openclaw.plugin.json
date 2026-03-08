@@ -1,6 +1,6 @@
 {
-  "id": "chatmax",
-  "channels": ["chatmax"],
+  "id": "max",
+  "channels": ["max"],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

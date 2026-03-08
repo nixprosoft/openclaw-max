@@ -28,5 +28,5 @@ What actually happens. Include error messages or logs if available.
 
 ## Logs
 ```
-Paste relevant logs from: journalctl --user -u openclaw-gateway | grep chatmax
+Paste relevant logs from: journalctl --user -u openclaw-gateway | grep max
 ```

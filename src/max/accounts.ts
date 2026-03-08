@@ -8,7 +8,7 @@ import { normalizeMaxApiBase } from "./client.js";
 const DEFAULT_MAX_API_BASE = "https://botapi.max.ru";
 
 function listConfiguredAccountIds(cfg: OpenClawConfig): string[] {
-  const accounts = (cfg.channels as Record<string, unknown>)?.chatmax as MaxAccountConfig | undefined;
+  const accounts = (cfg.channels as Record<string, unknown>)?.max as MaxAccountConfig | undefined;
   const accts = accounts?.accounts;
   if (!accts || typeof accts !== "object") {
     return [];
@@ -41,7 +41,7 @@ export function resolveDefaultMaxAccountId(cfg: OpenClawConfig): string {
 }
 
 function getMaxChannelConfig(cfg: OpenClawConfig): MaxAccountConfig | undefined {
-  return (cfg.channels as Record<string, unknown>)?.chatmax as MaxAccountConfig | undefined;
+  return (cfg.channels as Record<string, unknown>)?.max as MaxAccountConfig | undefined;
 }
 
 function mergeMaxAccountConfig(cfg: OpenClawConfig, accountId: string): MaxAccountConfig {
